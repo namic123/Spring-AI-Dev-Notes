@@ -7,6 +7,10 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.embedding.Embedding;
+import org.springframework.ai.embedding.EmbeddingOptions;
+import org.springframework.ai.embedding.EmbeddingRequest;
+import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.*;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -74,5 +78,34 @@ public class OpenAIService {
         // 스트리밍 API 호출: 응답이 Flux<ChatResponse> 형태로 수신됨
         return openAiChatModel.stream(prompt)
                 .mapNotNull(response -> response.getResult().getOutput().getText()); // 텍스트 추출 및 반환
+    }
+
+    /**
+     * 주어진 텍스트 리스트에 대해 OpenAI Embedding 모델을 사용하여 벡터 임베딩을 생성
+     * <p>
+     * 각 텍스트는 OpenAI 모델에 의해 float 배열 형태의 벡터로 변환되며,
+     * 이 벡터들은 자연어 처리 및 RAG 기반 검색 등에 활용될 수 있음.
+     *
+     * @param texts 임베딩을 생성할 입력 텍스트 목록
+     * @param model 사용할 OpenAI 임베딩 모델 이름 (예: "text-embedding-3-small")
+     * @return 각 텍스트에 대응하는 임베딩 벡터 리스트 (float 배열)
+     */
+    public List<float[]> generateEmbedding(List<String> texts, String model) {
+
+        // 1. 사용할 임베딩 모델 이름 설정
+        EmbeddingOptions embeddingOptions = OpenAiEmbeddingOptions.builder()
+                .model(model) // ex: "text-embedding-3-small"
+                .build();
+
+        // 2. 입력 텍스트와 옵션을 EmbeddingRequest 객체로 래핑
+        EmbeddingRequest prompt = new EmbeddingRequest(texts, embeddingOptions);
+
+        // 3. OpenAI Embedding 모델에 요청을 보내고 응답을 받음
+        EmbeddingResponse response = openAiEmbeddingModel.call(prompt);
+
+        // 4. 응답으로부터 임베딩 벡터(float[])만 추출하여 리스트로 반환
+        return response.getResults().stream()
+                .map(Embedding::getOutput) // 각 Embedding 객체에서 float[] 벡터 추출
+                .toList();
     }
 }
